@@ -1,0 +1,299 @@
+substitutions:
+  wifiName: !secret wifi_ssid
+  wifiPass: !secret wifi_password
+  gateway: !secret wifi_gateway
+  subnet: !secret wifi_subnet
+  dns: !secret wifi_dns
+  espKey: !secret espKey
+  fallbackWifiName: lockout-ap
+  fallbackWifiPass: !secret wifi_password
+  pin: D7
+
+esphome:
+  name: $name
+  platformio_options:
+    board_build.ldscript: "eagle.flash.4m1m.ld"
+  libraries:
+    - LittleFS
+  on_boot:
+      then:
+        - script.execute: turn_off
+        - lambda: |-
+            members->configure(id(groups).c_str(), id(webhost).c_str());
+
+esp8266:
+  board: nodemcu
+
+api:
+  #reboot_timeout: 0s
+  encryption:
+    key: "$espKey"
+
+wifi:
+  ssid: $wifiName
+  password: $wifiPass
+  min_auth_mode: WPA2
+  manual_ip:
+    static_ip: $ip
+    gateway: $gateway
+    subnet: $subnet
+    dns1: $dns
+    dns2: 8.8.8.8
+  ap:
+    ssid: $fallbackWifiName
+    password: $fallbackWifiPass
+  fast_connect: on
+  use_address: $ip
+
+http_request:
+  useragent: esphome/device
+  timeout: 4s
+  esp8266_disable_ssl_support: false
+  verify_ssl: false
+
+globals:
+    - id: lockout_name
+      type: "std::string"
+      restore_value: no
+      initial_value: "\"$name\""
+
+    - id: groups
+      type: "std::string"
+      restore_value: no
+      initial_value: "\"$groups\""
+
+    - id: webhost
+      type: "std::string"
+      restore_value: no
+      initial_value: "\"$webhost\""
+
+    - id: http_queue
+      type: 'std::vector<std::string>'
+
+    - id: active_time
+      type: "uint32_t"
+      restore_value: no
+      initial_value: $activeTime
+
+    - id: expiration_time
+      type: "uint32_t"
+      restore_value: no
+      initial_value: "0"
+
+    - id: heartbeat
+      type: "uint32_t"
+      restore_value: no
+      initial_value: "0"
+
+script:
+  - id: scan_tag
+    parameters:
+      tag: string
+    then:
+      - lambda: |-
+          if (tag.length() > 8) {
+            tag = tag.substr(7);
+            int i = 0;
+            while(i < tag.length() && tag.substr(i, 1) == "0") {
+              i++;
+            }
+            if(i == tag.length()) {
+              tag = "";
+            } else {
+              tag = tag.substr(i);
+            }
+          }
+
+          if(tag.length() < 4){
+            ESP_LOGD("reader", "ignoring tag too short %s", tag.c_str());
+            return;
+          }
+          ESP_LOGD(
+            "reader",
+            "looking for tag %s",
+            tag.c_str()
+          );
+          if (members->findcard(tag.c_str())){
+              ESP_LOGD(
+                "reader",
+                "allowed tag found matching %s: %s",
+                tag.c_str(),
+                members->name
+              );
+              id(turn_on).execute();
+          } else {
+            ESP_LOGD("reader", "no allowed tags found matching %s", tag.c_str());
+            auto url = (std::string) "http://" + id(webhost).c_str() + "/rfid-fail.php?card=" + tag.c_str() + "&name=" + id(lockout_name).c_str();
+            id(http_queue).push_back(url);
+          }
+
+  - id: turn_on
+    then:
+      - lambda: |-
+          ESP_LOGD("relay", "turning on relay");
+
+          id(expiration_time) = id(active_time);
+          id(relay).turn_on();
+          auto url = (std::string) "http://" + id(webhost).c_str() + "/rfid.php?id=" + std::to_string(members->id) + "&name=" + id(lockout_name).c_str();
+          id(http_queue).push_back(url);
+
+  - id: turn_off
+    then:
+      - lambda: |-
+          ESP_LOGD("relay", "turning off relay");
+
+          id(relay).turn_off();
+
+interval:
+  - interval: 1s
+    then:
+      - while:
+          condition:
+            lambda: 'return !id(http_queue).empty();'
+          then:
+            - http_request.get:
+                url: !lambda |-
+                  auto url = id(http_queue).front();
+                  id(http_queue).erase(id(http_queue).begin());
+                  ESP_LOGD("request", "making request to %s", url.c_str());
+                  return url;
+                on_response:
+                  then: 
+                    - lambda: |-
+                        ESP_LOGD("request", "Request Complete %d %u ms", response->status_code, response->duration_ms);
+      - lambda: |-
+          if (id(expiration_time) > 0 && id(expiration_time) < 999) {
+              ESP_LOGD("relay", "decrementing expiration time, current time %i", id(expiration_time));
+
+              id(expiration_time) -= 1;
+              if (id(expiration_time) == 0) {
+                  id(turn_off).execute();
+              }
+          }
+  - interval: 10s
+    then:
+      - lambda: |-
+          ESP_LOGD("relay", "heartbeat: %i", id(heartbeat));
+          id(heartbeat) += 1;
+          if(members->fetch_needed){
+            ESP_LOGD("members", "boot fetch");
+            members->fetch_new();
+          }
+
+captive_portal:
+
+web_server:
+  auth:
+    username: "esphome"
+    password: "lockout"
+    
+# Enable logging
+logger:
+
+ota:
+  platform: esphome
+
+font:
+    - id: hack
+      file: "Hack-Regular.ttf"
+      size: 15 
+    - id: hack10
+      file: "Hack-Regular.ttf"
+      size: 10 
+
+color:
+    - id: yellow
+      red: 50%
+      green: 50%
+      blue: 0%
+      white: 0%
+    - id: red
+      red: 100%
+      green: 0%
+      blue: 0%
+      white: 0%
+    - id: green
+      red: 0%
+      green: 100%
+      blue: 0%
+      white: 0%
+
+switch:
+  - platform: gpio
+    pin: $pin
+    id: relay
+    restore_mode: ALWAYS_OFF
+
+text:
+  - platform: template
+    mode: text
+    id: scanid
+    name: "Scan ID"
+    initial_value: ""
+    set_action: 
+      then:
+        - lambda: |-
+            if (x != "") {
+              id(scan_tag)->execute(x);
+            }
+
+text_sensor:
+  - platform: template
+    name: "Last Person"
+    lambda: |-
+      return esphome::str_sprintf(members->name);
+
+i2c:
+  sda: D2
+  scl: D1
+  frequency: 800kHz
+
+display:
+    - platform: ssd1306_i2c
+      model: "SSD1306 128x64"
+      address: 0x3C
+      update_interval: 1s
+      lambda: |-
+        it.fill(COLOR_OFF);
+
+        if(id(expiration_time) == 999) {
+          it.print(0, 0, id(hack), id(green), "Unlocked until reset");
+        } else if (id(expiration_time) > 0) {
+          auto msg = "Unlocked: " + to_string(id(expiration_time));
+          it.print(0, 0, id(hack), id(green), msg.c_str());
+        } else {
+          it.print(0, 0, id(hack), id(red), "Locked");
+        }
+
+        it.print(0, 15, id(hack), members->card);
+        it.print(0, 30, id(hack), members->name);
+
+        it.print(0, 45, id(hack), id(yellow), id(lockout_name).c_str());
+
+external_components:
+  - source: 
+      type: local
+      path: components
+
+wiegand_reader:
+  - id: reader
+    d0: D6
+    d1: D5
+    on_tag:
+      - lambda: |-
+          if (x != "") {
+              id(scan_tag)->execute(x);
+          }
+
+membercards:
+  - id: members
+
+button:
+  - platform: template
+    name: Fetch
+    id: fetchbtn
+    on_press:
+      then:
+        - lambda: |-
+            ESP_LOGD("members", "force fetch");
+            members->fetch_new();

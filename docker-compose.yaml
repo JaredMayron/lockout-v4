@@ -1,0 +1,58 @@
+services:
+  esphome:
+    image: ghcr.io/esphome/esphome:latest
+    container_name: lockout-esphome
+    environment:
+      - TZ=America/Chicago # Change to your timezone (e.g., America/Chicago)
+      - PLATFORMIO_CORE_DIR=.platformio #relocate platformio to config dir
+      - PLATFORMIO_GLOBALLIB_DIR=.platformioLibs
+      - UID=${UID}
+    volumes:
+      - ./config:/config # Map to your config directory
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "6052:6052" # Web UI Port
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0 # Map your USB device for flashing (comment out if not using)
+    restart: unless-stopped
+    entrypoint: /bin/bash -c "(id -u esphome &>/dev/null || useradd -u ${UID} -U -M -G dialout esphome) ; su esphome -c '/entrypoint.sh dashboard --username ${ESPHOME_USER} --password ${ESPHOME_PASSWORD} /config'"
+  nginx:
+    image: nginx:alpine
+    container_name: lockout-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./web:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+
+  php:
+    image: php:8.3-fpm-alpine # Use a recent, specific PHP version
+    container_name: lockout-php
+    restart: unless-stopped
+    environment:
+      - CIVICRM_AUTH=${CIVICRM_AUTH}
+      - CIVICRM_KEY=${CIVICRM_KEY}
+      - CIVICRM_WEBSITE=${CIVICRM_WEBSITE}
+      - CIVICRM_APIv4URI=${CIVICRM_APIv4URI}
+      - CIVICRM_RFID_ACTVITY=${CIVICRM_RFID_ACTVITY}
+      - CIVICRM_RFID_OWNER=${CIVICRM_RFID_OWNER}
+      - ESPHOME_USERPASS=${ESPHOME_USER}:${ESPHOME_PASSWORD}
+      - LOCKOUT_WEBHOST=${LOCKOUT_WEBHOST}
+    volumes:
+      - ./web:/var/www/html,ro
+  php-cli:
+    profiles: ["make_configs"]
+    image: php:8.3-cli-alpine # Use the dedicated CLI image variant
+    user: "${UID}:1000" 
+    restart: never
+    container_name: lockout-php-cli
+    environment:
+      - LOCKOUT_WEBHOST=${LOCKOUT_WEBHOST}
+    volumes:
+      - ./config:/config # Map to your config directory
+      - ./web:/var/www/html
+    working_dir: /var/www/html
+    entrypoint: ["php", "make_configs.php"]

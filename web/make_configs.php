@@ -28,6 +28,8 @@ while ( ($data = fgetcsv($handle) ) !== FALSE ) {
       groups: \"{$data[2]}\"
       activeTime: \"{$data[3]}\"
       webhost: {$_ENV['LOCKOUT_WEBHOST']}
+      webuser: {$_ENV['ESPHOME_USER']}
+      webpass: {$_ENV['ESPHOME_PASSWORD']}
 ";
     echo " ..Writing /config/{$data[0]}.yaml\n";
     file_put_contents("/config/{$data[0]}.yaml", $file);

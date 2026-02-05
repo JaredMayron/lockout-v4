@@ -54,6 +54,8 @@ services:
     container_name: lockout-php-cli
     environment:
       - LOCKOUT_WEBHOST=${LOCKOUT_WEBHOST}
+      - ESPHOME_USER=${ESPHOME_USER}
+      - ESPHOME_PASSWORD=${ESPHOME_PASSWORD}
     volumes:
       - ./config:/config # Map to your config directory
       - ./web:/var/www/html

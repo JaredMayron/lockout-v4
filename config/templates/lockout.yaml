@@ -184,8 +184,8 @@ captive_portal:
 
 web_server:
   auth:
-    username: "esphome"
-    password: "lockout"
+    username: $webuser
+    password: $webpass
     
 # Enable logging
 logger:

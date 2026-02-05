@@ -5,13 +5,11 @@ on:
     branches: [ "main", "master" ]
     paths:
       - 'config/components/**'
-      - 'web/**'
       - '.github/codeql/**'
   pull_request:
     branches: [ "main", "master" ]
     paths:
       - 'config/components/**'
-      - 'web/**'
       - '.github/codeql/**'
   schedule:
     # Run weekly on Sunday at midnight
@@ -19,35 +17,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  analyze-php:
-    name: Analyze PHP
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: php
-        config-file: ./.github/codeql/codeql-config.yml
-        queries: +security-extended,security-and-quality
-
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v3
-
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:php"
-        output: sarif-results
-        upload: true
-
   analyze-cpp:
     name: Analyze C++ (ESP Components)
     runs-on: ubuntu-latest
@@ -73,5 +42,3 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:cpp"
-        output: sarif-results
-        upload: true

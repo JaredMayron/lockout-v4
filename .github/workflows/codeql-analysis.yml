@@ -19,18 +19,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  analyze:
-    name: Analyze
+  analyze-php:
+    name: Analyze PHP
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
       security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'cpp', 'php' ]
 
     steps:
     - name: Checkout repository
@@ -39,17 +34,9 @@ jobs:
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
-        languages: ${{ matrix.language }}
+        languages: php
         config-file: ./.github/codeql/codeql-config.yml
         queries: +security-extended,security-and-quality
-
-    # For C++ analysis of ESP components, we need to set up the build environment
-    - name: Setup ESP-IDF (C++ only)
-      if: matrix.language == 'cpp'
-      run: |
-        # CodeQL will attempt autobuild, but ESP code requires special handling
-        # For now, let CodeQL do source-level analysis without full compilation
-        echo "C++ source analysis mode - no full ESP build"
 
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
@@ -57,13 +44,34 @@ jobs:
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
-        category: "/language:${{matrix.language}}"
+        category: "/language:php"
         output: sarif-results
         upload: true
 
-    - name: Upload SARIF results
-      uses: actions/upload-artifact@v4
+  analyze-cpp:
+    name: Analyze C++ (ESP Components)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
       with:
-        name: codeql-results-${{ matrix.language }}
-        path: sarif-results
-        retention-days: 30
+        languages: cpp
+        # Use 'none' build mode for source-level analysis without compilation
+        # ESP/Arduino code requires PlatformIO which isn't available on GitHub runners
+        build-mode: none
+        queries: +security-extended,security-and-quality
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:cpp"
+        output: sarif-results
+        upload: true

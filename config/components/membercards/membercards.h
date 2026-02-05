@@ -34,4 +34,4 @@ protected:
 
 
 } // namespace membercards
-} // namespace esphome
+} // namespace esphome# SAST scanning enabled

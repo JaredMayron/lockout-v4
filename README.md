@@ -73,3 +73,6 @@ http://yourIP:8080/update.php will instruct the devices found in `lockouts.csv` 
 # Troubleshooting
 Each generated device has a web server enabled, protected with the user and password you specified in the .env file.  This will show the device logs and state.  The device will log card reads and card matching results.
 
+# Additional Documentation
+- [DATA_DICTIONARY.md](./DATA_DICTIONARY.md) - Detailed documentation of configuration fields, environment variables, and CiviCRM integration.
+

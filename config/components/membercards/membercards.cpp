@@ -84,7 +84,7 @@ bool membercards::findcard(const char *search) {
     //ESP_LOGD(TAG, "line %s", l.c_str());
     if(l.lastIndexOf(search) >= 5){ //don't allow matches in the ID
       file.close();
-      int x = sscanf(l.c_str(), "%d|%[^|]|%s", &id, name, card);
+      int x = sscanf(l.c_str(), "%d|%39[^|]|%39s", &id, name, card);
       ESP_LOGD(TAG, "num items %d %d, %s, %s", x, id, name, card);
       if(x == 3){
         strcpy(card, search);

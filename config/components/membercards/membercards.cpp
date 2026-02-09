@@ -79,14 +79,18 @@ bool membercards::findcard(const char *search) {
     ESP_LOGE(TAG, "Failed to open file for reading: names");
     return "";
   }
+  String s = String(search);
+  s.toLowerCase();
   while(file.available()){
     String l = file.readStringUntil('\n');
+    int x = sscanf(l.c_str(), "%d|%39[^|]|%39s", &id, name, card);
     //ESP_LOGD(TAG, "line %s", l.c_str());
-    if(l.lastIndexOf(search) >= 5){ //don't allow matches in the ID
-      file.close();
-      int x = sscanf(l.c_str(), "%d|%39[^|]|%39s", &id, name, card);
-      ESP_LOGD(TAG, "num items %d %d, %s, %s", x, id, name, card);
-      if(x == 3){
+    if(x == 3){
+      String card_lower = String(card);
+      card_lower.toLowerCase();
+      if(card_lower.indexOf(s) >= 0){ 
+        file.close();
+        ESP_LOGD(TAG, "num items %d %d, %s, %s", x, id, name, card);
         strcpy(card, search);
         return true;
       } else {

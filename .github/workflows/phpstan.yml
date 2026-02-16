@@ -38,7 +38,7 @@ jobs:
           tools: phpstan
 
       - name: Install SARIF formatter
-        run: composer global require phpstan/phpstan-sarif-formatter --no-interaction
+        run: composer global require jbelien/phpstan-sarif-formatter --no-interaction
 
       - name: Run PHPStan
         run: phpstan analyse --configuration=phpstan.neon --no-progress --error-format=sarif > phpstan.sarif

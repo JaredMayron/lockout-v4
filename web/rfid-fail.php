@@ -8,7 +8,7 @@ date_default_timezone_set($_ENV['TZ']);
 
 $url = $_ENV['CIVICRM_WEBSITE'].$_ENV['CIVICRM_APIv4URI'].'/Activity/create';
 $params = [
-  'values' => ['source_contact_id' => $_REQUEST['id'], 'activity_type_id' => $_ENV['CIVICRM_RFID_ACTVITY'], 'status_id' => 3, 'subject' => $_REQUEST['name'].' '.$_REQUEST['card'], 'activity_date_time' => date('Y-m-d H:i:s'), 'source_contact_id' => $_ENV['CIVICRM_RFID_OWNER']],
+  'values' => ['source_contact_id' => $_ENV['CIVICRM_RFID_OWNER'], 'target_contact_id' => [$_REQUEST['id']], 'activity_type_id' => $_ENV['CIVICRM_RFID_ACTVITY'], 'status_id' => 3, 'subject' => $_REQUEST['name'].' '.$_REQUEST['card'], 'activity_date_time' => date('Y-m-d H:i:s')],
 ];
 $request = stream_context_create([
   'http' => [

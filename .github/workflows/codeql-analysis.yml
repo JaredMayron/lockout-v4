@@ -1,0 +1,67 @@
+# CodeQL static analysis for lockout-v4
+# Scans C++ (ESPHome custom components) and Python code for security
+# vulnerabilities and code quality issues.
+#
+# Note: PHP is not supported by CodeQL. The web/*.php files are not analyzed
+# by this workflow.
+
+name: "CodeQL Analysis"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "config/components/**"
+      - "web/**"
+      - ".github/workflows/codeql-analysis.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "config/components/**"
+      - "web/**"
+      - ".github/workflows/codeql-analysis.yml"
+  schedule:
+    # Run weekly on Sundays at 04:00 UTC to catch new vulnerability advisories
+    - cron: "0 4 * * 0"
+
+permissions:
+  security-events: write
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # C++ ESPHome custom components in config/components/
+          # Uses buildless scanning because the embedded code requires
+          # ESPHome + PlatformIO toolchains that aren't practical to
+          # replicate in CI just for static analysis.
+          - language: c-cpp
+            build-mode: none
+
+          # Python ESPHome component definitions (__init__.py files)
+          - language: python
+            build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # Use the extended query suite for broader coverage including
+          # security, correctness, and maintainability checks
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

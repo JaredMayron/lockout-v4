@@ -1,0 +1,40 @@
+# PHPStan static analysis for the PHP web scripts (web/*.php)
+# Complements the CodeQL workflow which does not support PHP.
+
+name: "PHPStan"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "phpstan.neon"
+      - ".github/workflows/phpstan.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "phpstan.neon"
+      - ".github/workflows/phpstan.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  phpstan:
+    name: PHPStan Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: phpstan
+
+      - name: Run PHPStan
+        run: phpstan analyse --configuration=phpstan.neon --no-progress

@@ -60,6 +60,14 @@ bool membercards::fetch_new() {
       ESP_LOGD(TAG, "got some names %d", res);
       LittleFS.remove("names");
       LittleFS.rename("nametemp","names");
+      file = LittleFS.open("names", "r");
+      int lines = 0;
+      while(file.available()){
+        file.readStringUntil('\n');
+        lines++;
+      }
+      file.close();
+      ESP_LOGD(TAG, "total names %d", lines);
     } else {
       ESP_LOGE(TAG, "name failed %d", res);
       fetch_needed = true;
@@ -79,18 +87,22 @@ bool membercards::findcard(const char *search) {
     ESP_LOGE(TAG, "Failed to open file for reading: names");
     return "";
   }
+  String s = String(search);
+  s.toLowerCase();
   while(file.available()){
     String l = file.readStringUntil('\n');
-    //ESP_LOGD(TAG, "line %s", l.c_str());
-    if(l.lastIndexOf(search) >= 5){ //don't allow matches in the ID
-      file.close();
-      int x = sscanf(l.c_str(), "%d|%39[^|]|%39s", &id, name, card);
-      ESP_LOGD(TAG, "num items %d %d, %s, %s", x, id, name, card);
-      if(x == 3){
+    int x = sscanf(l.c_str(), "%d|%39[^|]|%39s", &id, name, card);
+    //ESP_LOGD(TAG, "s %s line %s", s.c_str(), l.c_str());
+    if(x == 3){
+      String card_lower = String(card);
+      card_lower.toLowerCase();
+      //ESP_LOGD(TAG, "test %s against %s %d", s.c_str(), card_lower.c_str(), card_lower.indexOf(s));
+      if(card_lower.indexOf(s) >= 0){ 
+        file.close();
+        ESP_LOGD(TAG, "num items %d %d, %s, %s", x, id, name, card);
         strcpy(card, search);
+        file.close();
         return true;
-      } else {
-        return false;
       }
     }
   }
